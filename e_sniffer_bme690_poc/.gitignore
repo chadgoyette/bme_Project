@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+*.pyc
+*.pyo
+*.pyd
+*.png
+data/
+prepared/
+models/
+track_b/logger/build/
+dist/
+build/
+*.egg-info/

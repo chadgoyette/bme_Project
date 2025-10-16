@@ -1,0 +1,40 @@
+{
+  "name": "Aging-Beef-6- v1 coins",
+  "version": 1,
+  "backend": "coines",
+  "i2c_addr": "0x76",
+  "steps": [
+    {
+      "temp_c": 180,
+      "ticks": 10,
+      "ms": 1400
+    },
+    {
+      "temp_c": 230,
+      "ticks": 8,
+      "ms": 1120
+    },
+    {
+      "temp_c": 280,
+      "ticks": 8,
+      "ms": 1120
+    },
+    {
+      "temp_c": 320,
+      "ticks": 8,
+      "ms": 1120
+    },
+    {
+      "temp_c": 360,
+      "ticks": 8,
+      "ms": 1120
+    },
+    {
+      "temp_c": 400,
+      "ticks": 5,
+      "ms": 700
+    }
+  ],
+  "cycle_target_sec": 1.0,
+  "notes": "ChatGPT- Beef age profile, aldehydes, alcohols/ketones, and heavier/aromatic species"
+}

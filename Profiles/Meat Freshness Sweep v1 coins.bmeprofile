@@ -1,0 +1,30 @@
+{
+  "name": "Meat Freshness Sweep v1 coins",
+  "version": 1,
+  "backend": "coines",
+  "i2c_addr": "0x76",
+  "steps": [
+    {
+      "temp_c": 180,
+      "ms": 150
+    },
+    {
+      "temp_c": 220,
+      "ms": 150
+    },
+    {
+      "temp_c": 260,
+      "ms": 150
+    },
+    {
+      "temp_c": 300,
+      "ms": 150
+    },
+    {
+      "temp_c": 340,
+      "ms": 150
+    }
+  ],
+  "cycle_target_sec": 1.0,
+  "notes": "Starter broad-spectrum sweep for VOC/spoilage signals"
+}

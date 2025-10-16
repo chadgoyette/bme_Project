@@ -1,0 +1,60 @@
+{
+  "name": "HP-322",
+  "version": 1,
+  "backend": "coines",
+  "i2c_addr": "0x76",
+  "steps": [
+    {
+      "temp_c": 100,
+      "ticks": 64,
+      "ms": 8960
+    },
+    {
+      "temp_c": 320,
+      "ticks": 2,
+      "ms": 280
+    },
+    {
+      "temp_c": 320,
+      "ticks": 2,
+      "ms": 280
+    },
+    {
+      "temp_c": 200,
+      "ticks": 2,
+      "ms": 280
+    },
+    {
+      "temp_c": 200,
+      "ticks": 31,
+      "ms": 4340
+    },
+    {
+      "temp_c": 200,
+      "ticks": 31,
+      "ms": 4340
+    },
+    {
+      "temp_c": 320,
+      "ticks": 2,
+      "ms": 280
+    },
+    {
+      "temp_c": 320,
+      "ticks": 20,
+      "ms": 2800
+    },
+    {
+      "temp_c": 320,
+      "ticks": 21,
+      "ms": 2940
+    },
+    {
+      "temp_c": 320,
+      "ticks": 21,
+      "ms": 2940
+    }
+  ],
+  "cycle_target_sec": 27.44,
+  "notes": "From AI Studio- Broader VOC coverage; good compromise for mixed organic samples such as food, fragrances, or spoilage odors"
+}

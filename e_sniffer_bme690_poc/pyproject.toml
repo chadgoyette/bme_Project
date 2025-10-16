@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "e-sniffer-bme690-poc"
+version = "0.1.0"
+description = "Proof-of-concept pipeline for BME690-based meat freshness classification."
+authors = [{name = "Chad G."}]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+dependencies = [
+    "pandas==2.2.2",
+    "pyarrow==16.1.0",
+    "pydantic==1.10.15",
+    "PySide6==6.7.1",
+    "matplotlib==3.8.4",
+    "numpy==1.26.4",
+    "scikit-learn==1.4.2",
+    "joblib==1.4.2",
+    "jinja2==3.1.4",
+    "plotly==5.22.0",
+    "pyqtgraph==0.13.4"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.2.0",
+    "pytest-qt==4.4.0",
+    "pytest-mock==3.14.0",
+    "mypy==1.10.0",
+    "ruff==0.4.3"
+]
+
+[tool.setuptools]
+packages = ["collector", "dataprep", "training", "live_test", "detector", "workflow"]

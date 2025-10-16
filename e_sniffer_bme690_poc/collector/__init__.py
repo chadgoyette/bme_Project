@@ -1,0 +1,1 @@
+"""Collector heater-profile application."""
