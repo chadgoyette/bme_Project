@@ -10,9 +10,6 @@ __pycache__/
 .env
 
 # Logs and caches
-logs/
-*/logs/
-*.log
 .pytest_cache/
 */.pytest_cache/
 
