@@ -25,3 +25,4 @@ coverage.xml
 # OS generated files
 .DS_Store
 Thumbs.db
+e_sniffer_bme690_poc/logs/

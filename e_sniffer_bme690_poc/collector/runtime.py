@@ -27,13 +27,14 @@ class Metadata:
     def from_mapping(cls, payload: Dict[str, object]) -> "Metadata":
         sample = str(payload.get("sample_name", "")).strip()
         specimen = str(payload.get("specimen_id", "")).strip()
-        storage = str(payload.get("storage", "")).strip()
+        storage_raw = payload.get("storage", "")
+        storage = str(storage_raw).strip() if storage_raw is not None else ""
         if not sample:
             raise ValueError("sample_name is required")
         if not specimen:
             raise ValueError("specimen_id is required")
-        if storage not in {"refrigerated", "countertop", "frozen", "other"}:
-            raise ValueError("storage must be one of refrigerated/countertop/frozen/other")
+        if not storage:
+            storage = "unspecified"
         return cls(
             sample_name=sample,
             specimen_id=specimen,
@@ -83,6 +84,7 @@ class CollectorRunner:
         self.logger.write_header()
 
         total_cycles_needed = max(0, self.config.skip_cycles) + self.config.cycles_target
+        dwell_seconds = max(0.0, float(getattr(profile, "cycle_dwell_sec", 0.0)))
         cycle_index = 0
         captured_cycles = 0
 
@@ -113,6 +115,21 @@ class CollectorRunner:
                 cycle_index += 1
                 if not is_warmup_cycle:
                     captured_cycles += 1
+                if (
+                    dwell_seconds > 0
+                    and not self.config.stop_event.is_set()
+                    and cycle_index < total_cycles_needed
+                ):
+                    slept = 0.0
+                    while slept < dwell_seconds and not self.config.stop_event.is_set():
+                        chunk = min(0.5, dwell_seconds - slept)
+                        try:
+                            self.config.backend.sleep(chunk)
+                        except AttributeError:
+                            time.sleep(chunk)
+                        slept += chunk
+                    if self.config.status_callback:
+                        self.config.status_callback({"__dwell__": slept})
         finally:
             self.config.backend.close()
             if self.logger:
@@ -214,3 +231,4 @@ def build_backend(profile: Profile) -> BackendBase:
     if profile.backend == "coines":
         return BackendCOINES(address=addr)
     raise ValueError(f"Unsupported backend '{profile.backend}'")
+

@@ -15,6 +15,7 @@ PROFILE_HEADER = {
     "backend": "Target hardware backend identifier.",
     "i2c_addr": "Sensor I2C address string (e.g. 0x76).",
     "steps": "Heater step table.",
+    "cycle_dwell_sec": "Optional dwell time between cycles in seconds.",
     "cycle_target_sec": "Desired duration for full step cycle.",
     "notes": "Optional free-text notes.",
 }
@@ -60,6 +61,7 @@ class Profile:
     i2c_addr: str
     steps: List[ProfileStep]
     cycle_target_sec: float
+    cycle_dwell_sec: float = 0.0
     notes: str = ""
     path: Path | None = None
     read_only: bool = False
@@ -75,6 +77,8 @@ class Profile:
             raise ValueError("Profiles must contain between 1 and 16 steps.")
         if float(self.cycle_target_sec) < 0:
             raise ValueError("cycle_target_sec must be non-negative.")
+        if float(self.cycle_dwell_sec) < 0:
+            raise ValueError("cycle_dwell_sec must be non-negative.")
         for idx, step in enumerate(self.steps, start=1):
             if not isinstance(step, ProfileStep):
                 raise ValueError(f"Step {idx}: Expected ProfileStep, got {type(step)!r}")
@@ -100,6 +104,7 @@ class Profile:
                 for s in self.steps
             ],
             "cycle_target_sec": cycle_length,
+            "cycle_dwell_sec": float(self.cycle_dwell_sec),
             "notes": self.notes,
         }
 
@@ -127,6 +132,7 @@ class Profile:
             i2c_addr=str(payload.get("i2c_addr", "0x76")),
             steps=steps,
             cycle_target_sec=float(payload.get("cycle_target_sec", 1.0)),
+            cycle_dwell_sec=float(payload.get("cycle_dwell_sec", 0.0)),
             notes=str(payload.get("notes", "")),
             path=path,
             read_only=read_only,
@@ -140,6 +146,7 @@ class Profile:
             i2c_addr=self.i2c_addr,
             steps=[ProfileStep(temp_c=s.temp_c, ticks=s.ticks) for s in self.steps],
             cycle_target_sec=self.cycle_target_sec,
+            cycle_dwell_sec=self.cycle_dwell_sec,
             notes=self.notes,
             read_only=read_only,
         )
@@ -167,6 +174,7 @@ DEFAULT_PROFILES: Dict[str, Dict[str, Any]] = {
             {"temp_c": 340, "ticks": 1},
         ],
         "cycle_target_sec": 0.7,
+        "cycle_dwell_sec": 10.0,
         "notes": "Starter broad-spectrum sweep for VOC/spoilage signals",
     },
     "VOC/IAQ": {
@@ -181,6 +189,7 @@ DEFAULT_PROFILES: Dict[str, Dict[str, Any]] = {
             {"temp_c": 300, "ticks": 1},
         ],
         "cycle_target_sec": 0.56,
+        "cycle_dwell_sec": 10.0,
         "notes": "IAQ-focused sweep",
     },
 }
@@ -195,3 +204,4 @@ def profile_from_default(name: str) -> Profile:
 
 def list_default_profiles() -> List[Profile]:
     return [profile_from_default(name) for name in DEFAULT_PROFILES]
+

@@ -42,6 +42,9 @@ class BackendBase:
 
     name = "base"
 
+    def sleep(self, seconds: float) -> None:
+        time.sleep(max(0.0, seconds))
+
     def apply_and_read_step(self, temp_c: int, duration_ms: int) -> Optional[SensorReading]:
         """Apply heater settings and read the sensor in forced mode.
 
@@ -268,3 +271,5 @@ class BackendCOINES(BackendBase):
             raise BackendError(f"Failed to send command to bridge: {exc}") from exc
 
         return self._readline()
+
+

@@ -1,0 +1,172 @@
+{
+  "templates": [
+    {
+      "attributes": [
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Category",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Sample A"
+            },
+            {
+              "parent_constraints": {},
+              "value": "Sample B"
+            }
+          ],
+          "role": "label"
+        },
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Storage",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "refrigerated"
+            },
+            {
+              "parent_constraints": {},
+              "value": "countertop"
+            },
+            {
+              "parent_constraints": {},
+              "value": "frozen"
+            },
+            {
+              "parent_constraints": {},
+              "value": "other"
+            }
+          ],
+          "role": "storage"
+        }
+      ],
+      "name": "Generic"
+    },
+    {
+      "attributes": [
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Species",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Beef"
+            },
+            {
+              "parent_constraints": {},
+              "value": "Chicken"
+            },
+            {
+              "parent_constraints": {},
+              "value": "Pork"
+            }
+          ],
+          "role": "label"
+        },
+        {
+          "dependencies": [
+            "Species"
+          ],
+          "input_type": "list",
+          "name": "Cut",
+          "options": [
+            {
+              "parent_constraints": {
+                "Species": [
+                  "Beef"
+                ]
+              },
+              "value": "Ribeye"
+            },
+            {
+              "parent_constraints": {
+                "Species": [
+                  "Beef"
+                ]
+              },
+              "value": "TBone"
+            },
+            {
+              "parent_constraints": {
+                "Species": [
+                  "Chicken"
+                ]
+              },
+              "value": "Breast"
+            },
+            {
+              "parent_constraints": {
+                "Species": [
+                  "Chicken"
+                ]
+              },
+              "value": "Thigh"
+            },
+            {
+              "parent_constraints": {
+                "Species": [
+                  "Pork"
+                ]
+              },
+              "value": "Tenderloin"
+            }
+          ],
+          "role": null
+        },
+        {
+          "dependencies": [
+            "Species"
+          ],
+          "input_type": "number",
+          "name": "Age (days)",
+          "options": [],
+          "role": null
+        },
+        {
+          "dependencies": [
+            "Species"
+          ],
+          "input_type": "list",
+          "name": "Feed Type",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Corn Fed"
+            },
+            {
+              "parent_constraints": {},
+              "value": "Grass Fed"
+            }
+          ],
+          "role": null
+        }
+      ],
+      "name": "Meat"
+    },
+    {
+      "attributes": [
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Location",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Inside"
+            },
+            {
+              "parent_constraints": {},
+              "value": "Outside"
+            }
+          ],
+          "role": null
+        }
+      ],
+      "name": "Natural Air"
+    }
+  ]
+}
