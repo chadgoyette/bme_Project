@@ -204,7 +204,7 @@ class CollectorRunner:
     ) -> Dict[str, object]:
         payload: Dict[str, object] = {
             "timestamp_utc": CsvLogger.timestamp_string(),
-            "elapsed_time_s": float(elapsed_time_s),
+            "elapsed_time_s": round(float(elapsed_time_s), 3),
             "cycle_index": cycle_index,
             "step_index": step_index,
             "commanded_heater_temp_C": step.temp_c,
@@ -246,4 +246,5 @@ def build_backend(profile: Profile) -> BackendBase:
     if profile.backend == "coines":
         return BackendCOINES(address=addr)
     raise ValueError(f"Unsupported backend '{profile.backend}'")
+
 
