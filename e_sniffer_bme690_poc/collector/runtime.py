@@ -85,8 +85,11 @@ class CollectorRunner:
 
         total_cycles_needed = max(0, self.config.skip_cycles) + self.config.cycles_target
         dwell_seconds = max(0.0, float(getattr(profile, "cycle_dwell_sec", 0.0)))
+        if dwell_seconds > 0:
+            LOGGER.info("Applying %.2f s dwell between cycles", dwell_seconds)
         cycle_index = 0
         captured_cycles = 0
+        last_logged_time: Optional[float] = None
 
         try:
             self._warmup()
@@ -94,6 +97,15 @@ class CollectorRunner:
                 is_warmup_cycle = cycle_index < self.config.skip_cycles
                 for step_index, step in enumerate(profile.steps, start=1):
                     reading = self._capture_stable_reading(step)
+                    now = time.monotonic()
+                    if is_warmup_cycle:
+                        elapsed = 0.0
+                    else:
+                        if last_logged_time is None:
+                            elapsed = 0.0
+                        else:
+                            elapsed = max(0.0, now - last_logged_time)
+                        last_logged_time = now
                     row = self._build_row(
                         metadata=metadata,
                         cycle_index=cycle_index,
@@ -101,6 +113,7 @@ class CollectorRunner:
                         step=step,
                         reading=reading,
                         warmup=is_warmup_cycle,
+                        elapsed_time_s=elapsed,
                     )
                     if self.config.status_callback:
                         self.config.status_callback(row)
@@ -187,9 +200,11 @@ class CollectorRunner:
         step: ProfileStep,
         reading,
         warmup: bool,
+        elapsed_time_s: float,
     ) -> Dict[str, object]:
         payload: Dict[str, object] = {
             "timestamp_utc": CsvLogger.timestamp_string(),
+            "elapsed_time_s": float(elapsed_time_s),
             "cycle_index": cycle_index,
             "step_index": step_index,
             "commanded_heater_temp_C": step.temp_c,

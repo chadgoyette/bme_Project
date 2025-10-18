@@ -8,6 +8,7 @@ from typing import Dict, Iterable
 
 CSV_HEADER = [
     "timestamp_utc",
+    "elapsed_time_s",
     "cycle_index",
     "step_index",
     "commanded_heater_temp_C",
