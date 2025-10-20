@@ -156,21 +156,21 @@ class CollectorRunner:
         return out_path
 
     def _capture_stable_reading(self, step: ProfileStep) -> Optional[SensorReading]:
-        """Discard the first sample after a heater change and retry until heat stability is reported."""
-        try:
-            self.config.backend.apply_and_read_step(step.temp_c, step.duration_ms)
-        except Exception as exc:
-            LOGGER.debug("Warm-up discard read failed: %s", exc)
+        """Request readings until the backend reports heater stability or retries are exhausted."""
         attempts = 0
         last_reading: Optional[SensorReading] = None
         while attempts < self.STEP_STABILITY_RETRIES and not self.config.stop_event.is_set():
-            candidate = self.config.backend.apply_and_read_step(step.temp_c, step.duration_ms)
+            try:
+                candidate = self.config.backend.apply_and_read_step(step.temp_c, step.duration_ms)
+            except Exception as exc:
+                LOGGER.debug("Sensor read failed during stability check: %s", exc)
+                candidate = None
             last_reading = candidate
             if candidate and candidate.heat_stable:
                 return candidate
             attempts += 1
         if last_reading and not last_reading.heat_stable:
-            LOGGER.debug("Heater step at %s°C timed out waiting for heat stability", step.temp_c)
+            LOGGER.debug("Heater step at %s C timed out waiting for heat stability", step.temp_c)
         return None
 
     def _warmup(self) -> None:

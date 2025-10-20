@@ -1,0 +1,61 @@
+{
+  "name": "HP-502-20sDwell",
+  "version": 1,
+  "backend": "coines",
+  "i2c_addr": "0x76",
+  "steps": [
+    {
+      "temp_c": 210,
+      "ticks": 32,
+      "ms": 4480
+    },
+    {
+      "temp_c": 265,
+      "ticks": 2,
+      "ms": 280
+    },
+    {
+      "temp_c": 265,
+      "ticks": 30,
+      "ms": 4200
+    },
+    {
+      "temp_c": 320,
+      "ticks": 2,
+      "ms": 280
+    },
+    {
+      "temp_c": 320,
+      "ticks": 30,
+      "ms": 4200
+    },
+    {
+      "temp_c": 265,
+      "ticks": 32,
+      "ms": 4480
+    },
+    {
+      "temp_c": 210,
+      "ticks": 32,
+      "ms": 4480
+    },
+    {
+      "temp_c": 155,
+      "ticks": 32,
+      "ms": 4480
+    },
+    {
+      "temp_c": 100,
+      "ticks": 32,
+      "ms": 4480
+    },
+    {
+      "temp_c": 155,
+      "ticks": 32,
+      "ms": 4480
+    }
+  ],
+  "cycle_target_sec": 35.84,
+  "cycle_dwell_sec": 20.0,
+  "notes": "AI Studio- Stable, comprehensive scan for lab work or training; ideal when drift and recovery need to be fully observed"
+}
