@@ -1,0 +1,16 @@
+{
+  "name": "Cleansing Cycle",
+  "version": 1,
+  "backend": "coines",
+  "i2c_addr": "0x76",
+  "steps": [
+    {
+      "temp_c": 380,
+      "ticks": 214,
+      "ms": 29960
+    }
+  ],
+  "cycle_target_sec": 29.96,
+  "cycle_dwell_sec": 60.0,
+  "notes": "Chat Cleaning cycle"
+}

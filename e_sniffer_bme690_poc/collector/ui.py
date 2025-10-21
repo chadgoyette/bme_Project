@@ -1571,6 +1571,7 @@ class CollectorApp:
             self._set_error(f"Select a value for: {', '.join(missing)}.")
             return None
         sample_parts = [template.name]
+        primary_label = ""
         for attribute in template.attributes:
             value = selections.get(attribute.name, "").strip()
             if attribute.input_type == "number":
@@ -1584,6 +1585,8 @@ class CollectorApp:
                 selections[attribute.name] = value
             if value:
                 sample_parts.append(value)
+                if attribute.role == "label" and not primary_label:
+                    primary_label = value
         sample_name = " > ".join(part for part in sample_parts if part)
         specimen_id = self.var_specimen.get().strip()
         if not specimen_id:
@@ -1597,6 +1600,8 @@ class CollectorApp:
             "specimen_id": specimen_id,
             "storage": storage_value,
             "notes": self.text_notes.get("1.0", "end").strip(),
+            "category": template.name,
+            "primary_label": primary_label,
         }
         try:
             return Metadata.from_mapping(payload)

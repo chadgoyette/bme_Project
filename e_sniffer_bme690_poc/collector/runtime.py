@@ -22,6 +22,8 @@ class Metadata:
     specimen_id: str
     storage: str
     notes: str = ""
+    category: str = ""
+    primary_label: str = ""
 
     @classmethod
     def from_mapping(cls, payload: Dict[str, object]) -> "Metadata":
@@ -29,17 +31,29 @@ class Metadata:
         specimen = str(payload.get("specimen_id", "")).strip()
         storage_raw = payload.get("storage", "")
         storage = str(storage_raw).strip() if storage_raw is not None else ""
+        category_raw = payload.get("category")
+        primary_raw = payload.get("primary_label")
+        category = str(category_raw).strip() if category_raw is not None else ""
+        primary_label = str(primary_raw).strip() if primary_raw is not None else ""
         if not sample:
             raise ValueError("sample_name is required")
         if not specimen:
             raise ValueError("specimen_id is required")
         if not storage:
             storage = "unspecified"
+        if not category or not primary_label:
+            parts = [part.strip() for part in sample.split(">") if part.strip()]
+            if not category and parts:
+                category = parts[0]
+            if not primary_label and len(parts) > 1:
+                primary_label = parts[1]
         return cls(
             sample_name=sample,
             specimen_id=specimen,
             storage=storage,
             notes=str(payload.get("notes", "")),
+            category=category,
+            primary_label=primary_label,
         )
 
 
@@ -79,7 +93,7 @@ class CollectorRunner:
             self.config.cycles_target,
             self.config.skip_cycles,
         )
-        out_path = self._build_log_path(metadata.sample_name)
+        out_path = self._build_log_path(metadata)
         self.logger = CsvLogger(out_path)
         self.logger.write_header()
 
@@ -183,13 +197,23 @@ class CollectorRunner:
                 if time.time() >= end_time:
                     break
 
-    def _build_log_path(self, sample_name: str) -> Path:
+    def _build_log_path(self, metadata: Metadata) -> Path:
         base_root = self.config.output_root if self.config.output_root else Path("logs")
-        date_dir = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        safe_sample = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in sample_name)
         timestamp = datetime.now(timezone.utc).strftime("%H%M%S")
-        root = Path(base_root) / date_dir
+        date_dir = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        def _sanitize(value: str) -> str:
+            return "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in value.strip())
+
+        root = Path(base_root)
+        if metadata.category:
+            root = root / _sanitize(metadata.category)
+        if metadata.primary_label:
+            root = root / _sanitize(metadata.primary_label)
+        root = root / date_dir
         root.mkdir(parents=True, exist_ok=True)
+
+        safe_sample = _sanitize(metadata.sample_name)
         return root / f"bme690_{safe_sample}_{timestamp}.csv"
 
     def _build_row(

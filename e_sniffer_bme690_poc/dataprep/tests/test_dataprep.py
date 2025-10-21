@@ -1,85 +1,70 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from dataprep.features import compute_window_features
-from dataprep.schemas import RunMetadata
-from dataprep.utils import drop_warmup, resample_uniform, sliding_windows
-
-
-def make_metadata() -> RunMetadata:
-    return RunMetadata(
-        specimen_id="SPC-1",
-        meat_type="beef",
-        cut="ribeye",
-        age_days=0,
-        storage_condition="fridge",
-        mass_g=100.0,
-        jar_id="JAR-01",
-        run_id="RUN-1",
-        operator="OP",
-        protocol_version="1.0",
-        heater_profile_id="HP",
-        sample_rate_hz=2.0,
-        warmup_sec=60,
-        exposure_sec=120,
-        post_exposure_sec=0,
-        room_temp_C=21.0,
-        room_rh_pct=45.0,
-        notes="",
-    )
+from dataprep.build import FEATURE_COLUMNS, _stack_signals, build_cycle_samples, extract_label_fields
 
 
-def test_drop_warmup_trims_rows():
-    df = pd.DataFrame(
-        {
-            "timestamp_ms": [0, 1000, 2000, 70000],
-            "gas_resistance_ohms": [1.0, 1.1, 1.2, 1.3],
-            "temperature_C": [20, 20, 20, 20],
-            "humidity_pct": [40, 40, 40, 40],
-            "pressure_Pa": [101325, 101325, 101325, 101325],
-        }
-    )
-    trimmed = drop_warmup(df, warmup_sec=60)
-    assert trimmed.shape[0] == 1
-    assert trimmed["timestamp_ms"].iloc[0] == 70000
+def test_extract_label_fields_parses_sample_name():
+    fields = extract_label_fields("Coffee > Dunkin > Hazelnut > Yes > No")
+    assert fields["category"] == "Coffee"
+    assert fields["primary_label"] == "Dunkin"
+    assert fields["target_label"] == "No"
+    assert fields["label_path"] == "Coffee / Dunkin / Hazelnut / Yes / No"
 
 
-def test_resample_uniform_interpolates_short_gaps():
-    df = pd.DataFrame(
-        {
-            "timestamp_ms": [0, 1000, 4000],
-            "gas_resistance_ohms": [1.0, 2.0, 5.0],
-            "temperature_C": [20.0, 20.5, 21.0],
-            "humidity_pct": [40.0, 41.0, 42.0],
-            "pressure_Pa": [101325, 101330, 101340],
-        }
-    )
-    resampled, gaps = resample_uniform(df, target_hz=1.0, max_gap_sec=3.0)
-    # Expect 5 samples (0 through 4 seconds)
-    assert resampled.shape[0] == 5
-    # Interpolated middle point
-    assert np.isclose(resampled.loc[2, "gas_resistance_ohms"], 3.0)
-    # No unfilled gaps because gap <= 3 s
-    assert gaps.sum() == 0
+def test_extract_label_fields_falls_back_to_raw_string():
+    fields = extract_label_fields("LooseLabel")
+    assert fields["category"] == "LooseLabel"
+    assert fields["primary_label"] == "LooseLabel"
+    assert fields["target_label"] == "LooseLabel"
+    assert fields["label_path"] == "LooseLabel"
 
 
-def test_compute_window_features_basic():
-    metadata = make_metadata()
-    timestamps = np.arange(0, 6000, 1000)
-    window = pd.DataFrame(
-        {
-            "timestamp_ms": timestamps,
-            "gas_resistance_ohms": np.linspace(1.0, 2.0, len(timestamps)),
-            "gas_delta": np.linspace(0.0, 1.0, len(timestamps)),
-            "temperature_C": np.linspace(20.0, 22.0, len(timestamps)),
-            "humidity_pct": np.linspace(40.0, 44.0, len(timestamps)),
-            "gap_filled": [False] * len(timestamps),
-            "gap_unfilled": [False] * len(timestamps),
-        }
-    )
-    feats = compute_window_features(window, metadata, sample_rate_hz=1.0)
-    assert feats["specimen_id"] == metadata.specimen_id
-    assert feats["quality_class"] == "clean"
-    assert np.isclose(feats["gas_mean"], 1.5)
-    assert np.isclose(feats["temperature_range"], 2.0)
-    assert feats["freshness_label"] == "fresh"
+def _make_cycle_dataframe(steps: int = 4) -> pd.DataFrame:
+    data = {
+        "cycle_index": np.repeat([3, 4], steps),
+        "step_index": list(range(1, steps + 1)) * 2,
+        "commanded_heater_temp_C": np.tile(np.linspace(200, 320, steps), 2),
+        "step_duration_ticks": 32,
+        "step_duration_ms": 4480,
+        "heater_heat_stable": True,
+        "sensor_status_raw": 176,
+        "gas_resistance_ohm": np.linspace(10, 100, steps * 2),
+        "sensor_temperature_C": 25.0,
+        "sensor_humidity_RH": 40.0,
+        "pressure_Pa": 101000.0,
+        "backend": "coines",
+        "i2c_addr": "0x76",
+        "sample_name": "Category > Label",
+        "specimen_id": "SPEC-1",
+        "storage": "fridge",
+        "notes": "",
+        "profile_name": "Profile-A",
+        "profile_hash": "abc123",
+    }
+    return pd.DataFrame(data)
+
+
+def test_build_cycle_samples_infers_steps_and_returns_sequences(tmp_path):
+    df = _make_cycle_dataframe(steps=5)
+    signals, metadata, inferred = build_cycle_samples(df, tmp_path / "file.csv", expected_steps=None, drop_unstable=True)
+    assert inferred == 5
+    assert len(signals) == 2
+    assert all(signal.shape == (5, len(FEATURE_COLUMNS)) for signal in signals)
+    assert metadata[0]["target_label"] == "Label"
+    assert metadata[0]["specimen_id"] == "SPEC-1"
+
+
+def test_build_cycle_samples_skips_incomplete_cycles(tmp_path):
+    df = _make_cycle_dataframe(steps=4)
+    # Introduce NaN in one cycle
+    df.loc[df["cycle_index"] == 4, "gas_resistance_ohm"] = np.nan
+    signals, metadata, inferred = build_cycle_samples(df, tmp_path / "file.csv", expected_steps=None, drop_unstable=False)
+    assert inferred == 4
+    assert len(signals) == 1  # one cycle removed
+    assert len(metadata) == 1
+
+
+def test_stack_signals_handles_empty():
+    stacked = _stack_signals([], expected_steps=0)
+    assert stacked.shape == (0, 0, len(FEATURE_COLUMNS))

@@ -1,53 +1,69 @@
 # Data Preparation CLI
 
-`dataprep` converts raw Bosch Development Desktop (DD) exports into a tidy, windowed feature table for modelling. The process follows well-established electronic-nose workflows for meat freshness assessment that emphasise baseline drift removal, sliding-window summarisation, and preservation of the original raw signals for auditability [Li & Suslick, 2016](https://doi.org/10.1021/acssensors.6b00492); [Pham et al., 2024](https://doi.org/10.51316/jst.173.etsd.2024.34.2.5); [Kodogiannis & Alshejari, 2025](https://doi.org/10.3390/s25103198).
+`dataprep` works with the updated collector pipeline. It scans the CSV logs that `collector` writes, groups rows by heater cycle, and produces fixed-length tensors tuned for 1D convolutional networks. The goal is to keep the preprocessing lightweight—only the structure that is absolutely required for training is preserved, and no statistical feature engineering is performed.
 
-## Inputs and Raw Data Retention
+## Inputs
 
-Each run directory produced by `collector` contains:
+- **Collector logs**: each run is a CSV named `bme690_<sample_name>_<timestamp>.csv`, usually inside the `logs/` directory (or a custom directory you picked when starting the run).
+- **Inline labels**: the `sample_name` column encodes the labels captured during collection, e.g. `Coffee > Dunkin > Hazelnut > Yes > No`. The CLI parses this string to recover:
+  - `category` – the first component (`Coffee` in the example).
+  - `primary_label` – the second component when present (defaults to `category` if missing).
+  - `target_label` – the last component (what the CNN will learn to predict).
+  - `label_path` – the entire hierarchy joined with `" / "` for later regrouping.
+- **Metadata**: other fields (`specimen_id`, `storage`, `profile_name`, etc.) are copied into the prepared index so you can trace tensors back to their origin.
 
-- `bme690_<sample>_<timestamp>.csv` – raw BME690 readings (unchanged by dataprep).
-- `metadata.json` – specimen identifiers, warm-up duration, and labels.
-
-`dataprep` never edits or deletes these source files. All derived assets are written under `prepared/`, keeping the raw logs intact for future reprocessing or forensic analysis.
+The CSVs are read in place. Nothing is modified or deleted in the log directories.
 
 ## Processing Workflow
 
-1. **Load run folders** (CSV + metadata). Multiple runs can be processed in one invocation.
-2. **Trim warm-up** seconds (metadata key `warmup_sec`). Discarding transient heating periods aligns with prior studies that emphasise steady-state gas responses for reliable classification [Li & Suslick, 2016].
-3. **Resample to a uniform grid** (default 1 Hz) using time interpolation for gaps shorter than `--max-gap-sec` (default 3 s). Larger gaps are flagged in the `quality_class` column so downstream training can exclude them if desired.
-4. **Baseline correction**: subtract the mean gas resistance recorded during the first `--baseline-sec` seconds after warm-up to mitigate long-term drift, a common strategy in electronic-nose deployments [Pham et al., 2024].
-5. **Sliding windows**: construct fixed-length windows (`--window-sec`, default 600 s) with stride `--stride-sec` (default 60 s). Each window is tagged with specimen metadata and a freshness label (`fresh` vs. `aged`, overridable via metadata).
-6. **Feature generation**: for `gas_resistance`, `gas_delta`, temperature, and humidity, compute mean, standard deviation, min, max, slope (per second), mean absolute difference, and early/late ratios. These statistics capture both absolute concentration changes and kinetics that have proven useful in e-nose based spoilage detection [Kodogiannis & Alshejari, 2025].
-7. **Quality annotations**: windows inherit `quality_class ∈ {clean, interpolated, gap}` so that noisy segments can be filtered prior to training.
-8. **Reports and logs**: produce HTML summaries (`reports/dataprep_summary.html`), structured logs (`logs/dataprep.log`), features (`features.parquet`), labels (`labels.csv`), and split metadata (`split.json`). All timestamps remain millisecond UTC integers.
+1. **Discover CSV files** under `--logs-root` that match `bme690_*.csv`.
+2. **Load and filter** each file.
+   - Optionally drop rows where `heater_heat_stable` is `False` (`--drop-unstable`).
+   - Always drop rows without a gas reading.
+3. **Group by `cycle_index`** and sort by `step_index` to rebuild the time series for each heater cycle.
+4. **Validate step count**.
+   - The first valid cycle determines `steps_per_cycle` (or supply `--expected-steps`).
+   - Cycles with fewer/more steps or NaNs in feature columns are skipped to keep a consistent tensor shape.
+5. **Assemble tensors**. Every surviving cycle becomes a `float32` array shaped `(steps_per_cycle, 5)` with columns:
+   `["gas_resistance_ohm", "sensor_temperature_C", "sensor_humidity_RH", "pressure_Pa", "commanded_heater_temp_C"]`.
+6. **Collect metadata** describing the cycle and its labels.
+7. **Write outputs** (NumPy archive, metadata index, label map, summary JSON) into the `--out` directory.
 
 ## Usage
 
-```bash
-python -m dataprep.build \
-  --data-root ./data \
-  --out ./prepared \
-  --window-sec 600 \
-  --stride-sec 60 \
-  --baseline-sec 60 \
-  --resample-hz 1
+```powershell
+python -m dataprep.build `
+  --logs-root .\logs `
+  --out .\prepared_cnn `
+  --drop-unstable
 ```
 
-The command scans `./data/<run_id>/` folders, writes the derived artefacts to `./prepared/`, and prints a summary of counts and any anomalous runs.
+Key options:
+
+- `--logs-root` (default `logs/`): where to search for collector CSVs.
+- `--out` (default `prepared/`): destination folder for prepared artefacts.
+- `--expected-steps`: if your heater profile always yields a fixed number of steps, set it explicitly; otherwise it is inferred.
+- `--drop-unstable`: ignore rows where the collector could not confirm heater stability before logging. Leave it off if you prefer to keep every sample.
 
 ## Outputs
 
-- `prepared/features.parquet` – per-window feature rows ready for model training.
-- `prepared/labels.csv` – specimen-level labels and window quality metadata.
-- `prepared/split.json` – provenance used for the most recent training run.
-- `prepared/reports/dataprep_summary.html` – class balance and missing-data visuals.
-- `prepared/logs/dataprep.log` – detailed processing trace.
+All files live in the directory provided via `--out`.
 
-> **Tip:** regenerate features whenever the window size, resampling rate, or baseline length changes. Past runs remain untouched, so multiple prepared versions can coexist under different subdirectories (e.g., `prepared/win600_stride60/`).
+- `sequences.npz`
+  - `signals`: array shaped `(samples, steps_per_cycle, 5)` ready to feed into a CNN.
+  - `labels`: integer array aligned with `signals`.
+  - `feature_names`: ordered list of feature columns.
+- `index.csv`
+  - One row per cycle with metadata (`source_file`, `cycle_index`, `specimen_id`, `sample_name`, `target_label`, etc.) and the `label_index` column that aligns with `labels`.
+- `label_map.json`
+  - Mapping from `target_label` strings to integer IDs used in `labels`.
+- `summary.json`
+  - Counts of samples per class, the inferred `steps_per_cycle`, and the feature list.
 
-## References
+These artefacts are sufficient for the 1D CNN training workflow. Downstream code can load `sequences.npz`, perform any normalisation/augmentation that the model requires, and rely on `index.csv` plus `label_map.json` for experiment tracking.
 
-- Z. Li and K. S. Suslick, "Portable Optoelectronic Nose for Monitoring Meat Freshness," *ACS Sensors*, 2016, 1(11), 1330–1335. https://doi.org/10.1021/acssensors.6b00492
-- H. T. Pham et al., "An IoT-Based Smart Electronic Nose System for Non-Destructive Meat Freshness Monitoring," *JST: Engineering and Technology for Sustainable Development*, 2024, 34(2), 31–39. https://doi.org/10.51316/jst.173.etsd.2024.34.2.5
-- V. S. Kodogiannis and A. Alshejari, "Data Fusion of Electronic Nose and Multispectral Imaging for Meat Spoilage Detection Using Machine Learning Techniques," *Sensors*, 2025, 25(10), 3198. https://doi.org/10.3390/s25103198
+## Tips
+
+- If you run multiple heater profiles with different numbers of steps, prepare them separately or set `--expected-steps` to enforce the layout you expect.
+- The metadata index keeps the full `label_path`, so you can collapse labels (e.g. map `Coffee / Dunkin / Hazelnut / Yes / No` to a binary class) without re-running `dataprep`.
+- Regenerate the prepared tensors whenever you log new data—the CLI is idempotent and will simply append new cycles to the output tensors.

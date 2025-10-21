@@ -167,6 +167,67 @@
         }
       ],
       "name": "Natural Air"
+    },
+    {
+      "attributes": [
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Brand",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Dunkin"
+            }
+          ],
+          "role": null
+        },
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Flavor",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Hazelnut"
+            }
+          ],
+          "role": null
+        },
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Ground?",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Yes"
+            },
+            {
+              "parent_constraints": {},
+              "value": "No"
+            }
+          ],
+          "role": null
+        },
+        {
+          "dependencies": [],
+          "input_type": "list",
+          "name": "Decaf?",
+          "options": [
+            {
+              "parent_constraints": {},
+              "value": "Yes"
+            },
+            {
+              "parent_constraints": {},
+              "value": "No"
+            }
+          ],
+          "role": null
+        }
+      ],
+      "name": "Coffee"
     }
   ]
 }

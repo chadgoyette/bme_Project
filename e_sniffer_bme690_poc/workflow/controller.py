@@ -28,31 +28,30 @@ class WorkflowController(QObject):
             self.view.show_error("Data preparation is already running.")
             return
 
-        data_root = Path(config["data_root"])
+        logs_root = Path(config["logs_root"])
         out_dir = Path(config["out_dir"])
-        if not data_root.exists():
-            self.view.show_error(f"Data root does not exist: {data_root}")
+        if not logs_root.exists():
+            self.view.show_error(f"Logs root does not exist: {logs_root}")
+            return
+        if not logs_root.is_dir():
+            self.view.show_error(f"Logs root must be a directory: {logs_root}")
             return
         out_dir.mkdir(parents=True, exist_ok=True)
 
         args = [
             "-m",
             "dataprep.build",
-            "--data-root",
-            str(data_root),
+            "--logs-root",
+            str(logs_root),
             "--out",
             str(out_dir),
-            "--window-sec",
-            str(config["window_sec"]),
-            "--stride-sec",
-            str(config["stride_sec"]),
-            "--baseline-sec",
-            str(config["baseline_sec"]),
-            "--resample-hz",
-            str(config["resample_hz"]),
-            "--max-gap-sec",
-            str(config["max_gap_sec"]),
         ]
+
+        expected_steps = int(config["expected_steps"])
+        if expected_steps > 0:
+            args.extend(["--expected-steps", str(expected_steps)])
+        if bool(config.get("drop_unstable")):
+            args.append("--drop-unstable")
 
         self.view.set_dataprep_running(True)
         self.view.set_dataprep_status("Status: running...")
@@ -72,6 +71,12 @@ class WorkflowController(QObject):
 
         if not features_path.exists():
             self.view.show_error(f"Features file not found: {features_path}")
+            return
+        if features_path.suffix.lower() != ".parquet":
+            self.view.show_error(
+                "The workflow training tab currently supports only legacy tabular features (*.parquet). "
+                "CNN training integration will arrive in a future update."
+            )
             return
         group_col = str(config["group_col"]).strip()
         if not group_col:
@@ -140,10 +145,7 @@ class WorkflowController(QObject):
             if exit_status == QProcess.ExitStatus.NormalExit and exit_code == 0:
                 self.view.set_dataprep_status("Status: completed")
                 out_dir = Path(self.view.edit_prep_out.text())
-                features_path = out_dir / "features.parquet"
-                models_root = (self.workdir / "models").resolve()
-                models_root.mkdir(parents=True, exist_ok=True)
-                self.view.set_training_defaults(features_path, models_root)
+                self.view.notify_dataprep_complete(out_dir)
             else:
                 self.view.set_dataprep_status("Status: failed")
         elif kind == "training":
@@ -166,4 +168,3 @@ class WorkflowController(QObject):
             self.view.set_training_running(False)
             self.view.set_training_status("Status: failed")
         self.view.show_error(message)
-
