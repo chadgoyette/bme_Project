@@ -21,7 +21,8 @@ dependencies = [
     "joblib==1.4.2",
     "jinja2==3.1.4",
     "plotly==5.22.0",
-    "pyqtgraph==0.13.4"
+    "pyqtgraph==0.13.4",
+    "torch==2.4.0"
 ]
 
 [project.optional-dependencies]
@@ -34,4 +35,4 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["collector", "dataprep", "training", "live_test", "detector", "workflow"]
+packages = ["collector", "dataprep", "training", "training_cnn", "live_test", "detector", "workflow"]

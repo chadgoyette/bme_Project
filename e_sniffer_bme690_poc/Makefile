@@ -6,10 +6,10 @@ collector:
 	$(PYTHON) -m collector.collect
 
 dataprep:
-	$(PYTHON) -m dataprep.build --data-root ./data --out ./prepared --window-sec 600 --stride-sec 60 --baseline-sec 60 --resample-hz 1
+	$(PYTHON) -m dataprep.build --logs-root ./logs --out ./prepared --drop-unstable
 
 train:
-	$(PYTHON) -m training.train --in ./prepared/features.parquet --out ./models/exp_$$(date +%Y%m%d_%H%M) --group-col specimen_id --model rf --cv-folds 5
+	$(PYTHON) -m training_cnn.train --prepared-dir ./prepared --out ./models/cnn_$$(date +%Y%m%d_%H%M) --epochs 40 --batch-size 32 --learning-rate 0.001 --val-fraction 0.2 --patience 5
 
 live:
 	$(PYTHON) -m live_test.app

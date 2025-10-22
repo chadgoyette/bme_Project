@@ -66,21 +66,12 @@ class WorkflowController(QObject):
             self.view.show_error("Training is already running.")
             return
 
-        features_path = Path(config["features_path"])
+        mode = str(config.get("mode", "legacy"))
+        data_path = Path(config["data_path"])
         output_dir = Path(config["output_dir"])
 
-        if not features_path.exists():
-            self.view.show_error(f"Features file not found: {features_path}")
-            return
-        if features_path.suffix.lower() != ".parquet":
-            self.view.show_error(
-                "The workflow training tab currently supports only legacy tabular features (*.parquet). "
-                "CNN training integration will arrive in a future update."
-            )
-            return
-        group_col = str(config["group_col"]).strip()
-        if not group_col:
-            self.view.show_error("Group column cannot be blank.")
+        if mode not in {"legacy", "cnn"}:
+            self.view.show_error(f"Unknown training mode: {mode}")
             return
 
         if output_dir.exists():
@@ -90,27 +81,66 @@ class WorkflowController(QObject):
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
 
-        args = [
-            "-m",
-            "training.train",
-            "--in",
-            str(features_path),
-            "--out",
-            str(output_dir),
-            "--group-col",
-            group_col,
-            "--model",
-            str(config["model"]),
-            "--cv-folds",
-            str(config["cv_folds"]),
-            "--seed",
-            str(config["seed"]),
-        ]
+        if mode == "legacy":
+            if not data_path.exists():
+                self.view.show_error(f"Features file not found: {data_path}")
+                return
+            if data_path.suffix.lower() != ".parquet":
+                self.view.show_error("Legacy training expects a features.parquet file.")
+                return
+            group_col = str(config.get("group_col", "")).strip()
+            if not group_col:
+                self.view.show_error("Group column cannot be blank.")
+                return
+            args = [
+                "-m",
+                "training.train",
+                "--in",
+                str(data_path),
+                "--out",
+                str(output_dir),
+                "--group-col",
+                group_col,
+                "--model",
+                str(config["model"]),
+                "--cv-folds",
+                str(config["cv_folds"]),
+                "--seed",
+                str(config["seed"]),
+            ]
+        else:
+            if not data_path.exists() or not data_path.is_dir():
+                self.view.show_error(f"Prepared directory not found: {data_path}")
+                return
+            if not (data_path / "sequences.npz").exists():
+                self.view.show_error("sequences.npz is missing from the prepared directory.")
+                return
+            args = [
+                "-m",
+                "training_cnn.train",
+                "--prepared-dir",
+                str(data_path),
+                "--out",
+                str(output_dir),
+                "--epochs",
+                str(config["epochs"]),
+                "--batch-size",
+                str(config["batch_size"]),
+                "--learning-rate",
+                str(config["learning_rate"]),
+                "--val-fraction",
+                str(config["val_fraction"]),
+                "--patience",
+                str(config["patience"]),
+                "--seed",
+                str(config["seed"]),
+            ]
 
         self.view.set_training_running(True)
         self.view.set_training_status("Status: running...")
         timestamp = datetime.utcnow().isoformat(timespec="seconds")
-        self.view.append_log(f"=== Training started {timestamp} ===")
+        mode_label = "CNN" if mode == "cnn" else "Legacy"
+        self.view.append_log(f"=== {mode_label} Training started {timestamp} ===")
 
         self.training_process = self._launch_process(args, kind="training")
 

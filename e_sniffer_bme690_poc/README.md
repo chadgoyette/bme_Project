@@ -3,8 +3,8 @@
 The `e_sniffer_bme690_poc` repository hosts a small-but-complete proof of concept for classifying meat freshness using a Bosch BME690 gas sensor. Four Python applications plus a Track B C logger cooperate to ingest raw Bosch Development Desktop (DD) CSV exports, prepare train-ready features, train models, and replay predictions live.
 
 ```
-[collector] -> [dataprep] -> [training] -> [live_test]
-     raw runs      features/parquet      model artefacts      live inference
+[collector] -> [dataprep] -> [training_cnn] -> [live_test]
+     raw runs      sequences.npz      CNN model artefacts      live inference
 
 Optional Track B logger (C) can stream raw CSV directly into collector/dataprep.
 ```
@@ -14,8 +14,9 @@ Optional Track B logger (C) can stream raw CSV directly into collector/dataprep.
 | Path | Purpose |
 | ---- | ------- |
 | `collector/` | PySide6 GUI that wraps Bosch DD logging, stores metadata, and produces quick QC outputs. |
-| `dataprep/` | CLI that validates raw runs, trims warmup, resamples, windows, and feature engineers parquet features plus summary reports. |
-| `training/` | CLI that performs grouped cross-validation, trains baseline models, and exports serialized pipelines plus reports. |
+| `dataprep/` | CLI that validates raw runs, trims warm-up, and converts cycles into fixed-length tensors (`sequences.npz`, metadata, summaries). |
+| `training/` | Legacy CLI that performs grouped cross-validation on tabular features and exports serialized scikit-learn pipelines plus reports. |
+| `training_cnn/` | PyTorch CLI that consumes `prepared/` tensors, trains a 1D convolutional model, and writes checkpoints/metrics. |
 | `live_test/` | PySide6 GUI to replay or stream CSV data, compute rolling features, and display class probabilities with smoothing. |
 | `detector/` | PySide6 GUI that drives the sensor directly, streams heater profile data, and flags known classes with LED indicators. |
 | `workflow/` | PySide6 GUI that orchestrates data preparation and training in one place, wrapping the CLI stages. |
@@ -42,23 +43,23 @@ The design choices mirror published electronic-nose research on meat spoilage, w
    ```
    Manage heater profiles, enter specimen metadata, and press *Start* to warm the BME690 and log readings to `logs/<date>/bme690_<sample>_<timestamp>.csv`.
 
-3. **Data Preparation**
+3. **Data Preparation (tensors)**
    ```bash
    make dataprep
    ```
-   Converts raw runs into drift-corrected, windowed features at 1 Hz and writes parquet tables, labels, and HTML reports under `prepared/`.
+   Converts collector logs into fixed-length cycle tensors (`sequences.npz`), per-cycle metadata (`index.csv`), and `summary.json` under `prepared/`.
 
-4. **Training**
+4. **CNN Training**
    ```bash
    make train
    ```
-   Fits grouped cross-validation models, records metrics, and exports experiment folders into `models/`. Keep multiple experiments (e.g., by date stamp) to form an algorithm library for later detectors.
+   Trains the 1D convolutional network, saving `model.pt`, `metrics.json`, and `training_curves.png` into `models/cnn_<timestamp>/`.
 
 5. **Workflow UI (prep + train)**
    ```bash
    make workflow
    ```
-   Launch the combined orchestration UI to pick a data set, adjust prep parameters, and kick off training without shell commands.
+   Launch the combined orchestration UI to pick a data set, tweak prep parameters, and kick off either CNN or legacy training without shell commands.
 
 6. **Live Test UI**
    ```bash
@@ -81,8 +82,8 @@ The design choices mirror published electronic-nose research on meat spoilage, w
 ## Data Flow
 
 1. **collector** logs raw CSV, stores metadata (specimen ID, warm-up duration, profile hash), and produces quick QC captures.
-2. **dataprep** ingests run folders, trims warm-up periods, resamples to 1 Hz, baseline-corrects gas resistance, and engineers sliding-window features under `prepared/`.
-3. **training** loads `prepared/features.parquet`, performs grouped cross-validation, and writes model artefacts to `models/<experiment>/` together with metrics and feature lists.
+2. **dataprep** ingests run folders, trims warm-up periods, and emits uniform-length cycle tensors plus metadata under `prepared/`.
+3. **training_cnn** consumes the prepared tensors, fits the 1D convolutional network, and writes model artefacts to `models/cnn_<timestamp>/` together with metrics and training curves.
 4. **live_test** (or any detector) loads one or more trained pipelines and evaluates unknown samples, logging class probabilities for later review.
 
 ## Development Notes
